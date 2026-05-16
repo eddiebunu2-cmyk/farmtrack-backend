@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.auth import verify_password, create_access_token
+from app.core.auth import verify_password, create_access_token, hash_password
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenOut
 
@@ -19,3 +19,19 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Account is deactivated")
     token = create_access_token({"sub": str(user.id), "role": user.role})
     return TokenOut(access_token=token, role=user.role, name=user.name)
+
+
+@router.post("/setup")
+def create_first_superadmin(db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.phone == "+263771234567").first()
+    if existing:
+        return {"message": "Superadmin already exists"}
+    superadmin = User(
+        name="Tapiwa",
+        phone="+263771234567",
+        pin_hash=hash_password("1234"),
+        role="superadmin"
+    )
+    db.add(superadmin)
+    db.commit()
+    return {"message": "Superadmin created successfully"}
